@@ -18,7 +18,14 @@ data class DeviceState(
     val keyguardLocked: Boolean = false,
     /** null, "notification" or "call" */
     val engineKind: String? = null,
-)
+    val ringerMode: Int = RINGER_MODE_NORMAL,
+) {
+    companion object {
+        const val RINGER_MODE_SILENT = 0
+        const val RINGER_MODE_VIBRATE = 1
+        const val RINGER_MODE_NORMAL = 2
+    }
+}
 
 sealed class Decision {
     data class Ignore(val reason: String) : Decision()
@@ -40,6 +47,12 @@ class TriggerPolicy(private val clock: () -> Long) {
     fun decide(n: NotificationDescriptor, s: FlashSettings, state: DeviceState): Decision {
         val now = clock()
         if (!s.enabled) return ignore("DISABLED")
+
+        when (state.ringerMode) {
+            DeviceState.RINGER_MODE_SILENT -> if (!s.flashOnSilent) return ignore("RINGER_SILENT")
+            DeviceState.RINGER_MODE_VIBRATE -> if (!s.flashOnVibrate) return ignore("RINGER_VIBRATE")
+            DeviceState.RINGER_MODE_NORMAL -> if (!s.flashOnNormal) return ignore("RINGER_NORMAL")
+        }
 
         if (isCall(n)) {
             if (activeCallKey == n.keyHash) {

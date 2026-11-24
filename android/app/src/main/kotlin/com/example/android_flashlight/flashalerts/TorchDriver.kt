@@ -30,7 +30,8 @@ class CameraTorchDriver(ctx: Context, private val diag: Diag) : TorchDriver {
     @Volatile private var available = true
     @Volatile private var torchOn = false
     @Volatile private var ourOn = false
-    @Volatile private var lastOurSetMs = 0L
+    @Volatile private var lastOurSetOnMs = 0L
+    @Volatile private var userTorchActive = false
     @Volatile private var listener: ((Boolean, Long) -> Unit)? = null
 
     override val hasFlash: Boolean get() = cameraId != null
@@ -62,12 +63,22 @@ class CameraTorchDriver(ctx: Context, private val diag: Diag) : TorchDriver {
                         if (cameraId != id) return
                         available = true
                         torchOn = enabled
+                        if (enabled) {
+                            // Only flag user torch if WE did not command it within the last 1500ms
+                            if (!ourOn && SystemClock.uptimeMillis() - lastOurSetOnMs > USER_TORCH_DETECTION_WINDOW_MS) {
+                                userTorchActive = true
+                            }
+                        } else {
+                            userTorchActive = false
+                        }
                         listener?.invoke(enabled, System.nanoTime())
                     }
 
                     override fun onTorchModeUnavailable(cameraId: String) {
                         if (cameraId != id) return
                         available = false
+                        // Camera taken by another client: the framework switched our torch off.
+                        ourOn = false
                         diag.log("CAMERA_UNAVAILABLE", "cameraId" to cameraId, "source" to "callback")
                     }
                 }, Handler(thread.looper))
@@ -79,8 +90,7 @@ class CameraTorchDriver(ctx: Context, private val diag: Diag) : TorchDriver {
 
     override fun isAvailable() = cameraId != null && available
 
-    override fun isUserTorchOn(): Boolean =
-        torchOn && !ourOn && SystemClock.uptimeMillis() - lastOurSetMs > GRACE_MS
+    override fun isUserTorchOn(): Boolean = userTorchActive
 
     override fun maxStrengthLevel() = maxStrength
 
@@ -90,7 +100,10 @@ class CameraTorchDriver(ctx: Context, private val diag: Diag) : TorchDriver {
         val id = cameraId ?: return false
         if (Build.VERSION.SDK_INT < 23) return false
         ourOn = on
-        lastOurSetMs = SystemClock.uptimeMillis()
+        if (on) {
+            lastOurSetOnMs = SystemClock.uptimeMillis()
+            userTorchActive = false
+        }
         return try {
             if (on && Build.VERSION.SDK_INT >= 33 && strength != null && maxStrength > 1) {
                 cm.turnOnTorchWithStrengthLevel(id, strength.coerceIn(1, maxStrength))
@@ -98,18 +111,14 @@ class CameraTorchDriver(ctx: Context, private val diag: Diag) : TorchDriver {
                 cm.setTorchMode(id, on)
             }
             true
-        } catch (e: CameraAccessException) {
+        } catch (e: Exception) {
             if (on) ourOn = false
-            diag.log("TOGGLE_ERROR", "cameraId" to id, "code" to reasonName(e.reason))
-            false
-        } catch (e: IllegalArgumentException) {
-            if (on) ourOn = false
-            diag.log("TOGGLE_ERROR", "cameraId" to id, "code" to "ILLEGAL_ARGUMENT")
-            false
-        } catch (e: SecurityException) {
-            if (on) ourOn = false
-            diag.log("TOGGLE_ERROR", "cameraId" to id, "code" to "SECURITY")
-            false
+            diag.log("TOGGLE_ERROR", "cameraId" to id, "code" to (if (e is CameraAccessException) reasonName(e.reason) else e.javaClass.simpleName))
+            if (!on) {
+                try { cm.setTorchMode(id, false); true } catch (_: Exception) { false }
+            } else {
+                false
+            }
         }
     }
 
@@ -122,7 +131,7 @@ class CameraTorchDriver(ctx: Context, private val diag: Diag) : TorchDriver {
         else -> "REASON_$r"
     }
 
-    private companion object { const val GRACE_MS = 300L }
+    private companion object { const val USER_TORCH_DETECTION_WINDOW_MS = 1500L }
 }
 
 /** Emulator / CI driver: logs toggles, never touches hardware. */

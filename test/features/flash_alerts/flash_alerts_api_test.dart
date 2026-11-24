@@ -63,11 +63,20 @@ void main() {
       return m;
     });
     final api = FlashAlertsApi(isAndroid: true);
-    final out = await api.updateSettings(const FlashAlertsSettings(enabled: true).withSpeed(FlashSpeed.fast).copyWith(
-        notificationPattern: const FlashPatternConfig(onMs: 5)));
+    final out = await api.updateSettings(const FlashAlertsSettings(enabled: true)
+        .withSpeed(FlashSpeed.fast)
+        .copyWith(
+          notificationPattern: const FlashPatternConfig(onMs: 5),
+          flashOnNormal: true,
+          flashOnVibrate: false,
+          flashOnSilent: true,
+        ));
     expect(calls.single.method, 'updateSettings');
     final sent = calls.single.arguments as Map;
     expect(sent['enabled'], true);
+    expect(sent['flashOnNormal'], true);
+    expect(sent['flashOnVibrate'], false);
+    expect(sent['flashOnSilent'], true);
     expect((sent['notificationPattern'] as Map)['onMs'], 5);
     expect(out.notificationPattern.onMs, 40);
   });

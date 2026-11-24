@@ -98,6 +98,9 @@ class FlashAlertsSettings {
     this.callsEnabled = true,
     this.onlyWhenScreenOff = false,
     this.respectDnd = true,
+    this.flashOnNormal = true,
+    this.flashOnVibrate = true,
+    this.flashOnSilent = true,
     this.notificationPattern = const FlashPatternConfig(),
     this.callPattern = const FlashPatternConfig(
         burstGapMs: 500, bursts: 2147483647, maxDurationMs: 30000),
@@ -113,6 +116,9 @@ class FlashAlertsSettings {
   final bool callsEnabled;
   final bool onlyWhenScreenOff;
   final bool respectDnd;
+  final bool flashOnNormal;
+  final bool flashOnVibrate;
+  final bool flashOnSilent;
   final FlashPatternConfig notificationPattern;
   final FlashPatternConfig callPattern;
   final int? strengthLevel;
@@ -129,6 +135,9 @@ class FlashAlertsSettings {
       callsEnabled: m['callsEnabled'] as bool? ?? d.callsEnabled,
       onlyWhenScreenOff: m['onlyWhenScreenOff'] as bool? ?? d.onlyWhenScreenOff,
       respectDnd: m['respectDnd'] as bool? ?? d.respectDnd,
+      flashOnNormal: m['flashOnNormal'] as bool? ?? d.flashOnNormal,
+      flashOnVibrate: m['flashOnVibrate'] as bool? ?? d.flashOnVibrate,
+      flashOnSilent: m['flashOnSilent'] as bool? ?? d.flashOnSilent,
       notificationPattern: FlashPatternConfig.fromMap(
           m['notificationPattern'] as Map<Object?, Object?>?, d.notificationPattern),
       callPattern: FlashPatternConfig.fromMap(m['callPattern'] as Map<Object?, Object?>?, d.callPattern),
@@ -146,6 +155,9 @@ class FlashAlertsSettings {
         'callsEnabled': callsEnabled,
         'onlyWhenScreenOff': onlyWhenScreenOff,
         'respectDnd': respectDnd,
+        'flashOnNormal': flashOnNormal,
+        'flashOnVibrate': flashOnVibrate,
+        'flashOnSilent': flashOnSilent,
         'notificationPattern': notificationPattern.toMap(),
         'callPattern': callPattern.toMap(),
         'strengthLevel': strengthLevel,
@@ -161,6 +173,9 @@ class FlashAlertsSettings {
     bool? callsEnabled,
     bool? onlyWhenScreenOff,
     bool? respectDnd,
+    bool? flashOnNormal,
+    bool? flashOnVibrate,
+    bool? flashOnSilent,
     FlashPatternConfig? notificationPattern,
     FlashPatternConfig? callPattern,
     String? packageFilterMode,
@@ -174,6 +189,9 @@ class FlashAlertsSettings {
         callsEnabled: callsEnabled ?? this.callsEnabled,
         onlyWhenScreenOff: onlyWhenScreenOff ?? this.onlyWhenScreenOff,
         respectDnd: respectDnd ?? this.respectDnd,
+        flashOnNormal: flashOnNormal ?? this.flashOnNormal,
+        flashOnVibrate: flashOnVibrate ?? this.flashOnVibrate,
+        flashOnSilent: flashOnSilent ?? this.flashOnSilent,
         notificationPattern: notificationPattern ?? this.notificationPattern,
         callPattern: callPattern ?? this.callPattern,
         strengthLevel: strengthLevel,

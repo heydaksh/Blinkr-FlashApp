@@ -75,6 +75,12 @@ void main() {
     await t.pumpAndSettle();
     expect(api.settings.enabled, isTrue);
 
+    await t.scrollUntilVisible(find.widgetWithText(SwitchListTile, 'Ring Mode'), 200);
+    expect(api.settings.flashOnNormal, isTrue);
+    await t.tap(find.widgetWithText(SwitchListTile, 'Ring Mode'));
+    await t.pumpAndSettle();
+    expect(api.settings.flashOnNormal, isFalse);
+
     await t.tap(find.text('Fast'));
     await t.pumpAndSettle();
     expect(api.settings.speed, FlashSpeed.fast);

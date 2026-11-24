@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'flash_alerts_api.dart';
 import 'flash_alerts_settings.dart';
@@ -111,6 +112,11 @@ class _FlashAlertsSettingsScreenState extends State<FlashAlertsSettingsScreen>
     }
   }
 
+  void _toggleSwitch(FlashAlertsSettings next) {
+    HapticFeedback.lightImpact();
+    _save(next);
+  }
+
   static String _cleanName(String pkg) {
     final parts = pkg.split('.');
     if (parts.length > 1) {
@@ -128,7 +134,9 @@ class _FlashAlertsSettingsScreenState extends State<FlashAlertsSettingsScreen>
         SnackBar(
           content: Text(m),
           showCloseIcon: true,
-          closeIconColor: Colors.black54,
+          closeIconColor: Theme.of(context).brightness == Brightness.dark
+              ? Colors.black54
+              : Colors.white70,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -153,11 +161,13 @@ class _FlashAlertsSettingsScreenState extends State<FlashAlertsSettingsScreen>
   }
 
   Future<void> _test() => _guard(() async {
+    HapticFeedback.mediumImpact();
     final started = await api.testFlash();
     _toast(started ? 'Flashing…' : 'Skipped: your flashlight is already on.');
   });
 
   Future<void> _calibrate() => _guard(() async {
+    HapticFeedback.mediumImpact();
     _toast('Calibrating… the LED will flicker for a few seconds.');
     final r = await api.calibrate();
     await _load();
@@ -168,6 +178,7 @@ class _FlashAlertsSettingsScreenState extends State<FlashAlertsSettingsScreen>
   });
 
   Future<void> _export() => _guard(() async {
+    HapticFeedback.lightImpact();
     final text = await api.getDiagnostics();
     if (!mounted) return;
     await showDialog<void>(
@@ -201,6 +212,7 @@ class _FlashAlertsSettingsScreenState extends State<FlashAlertsSettingsScreen>
           TextButton.icon(
             icon: const Icon(Icons.delete_outline, size: 18),
             onPressed: () async {
+              HapticFeedback.mediumImpact();
               await api.clearDiagnostics();
               if (ctx.mounted) Navigator.pop(ctx);
               _toast('Diagnostics log cleared');
@@ -210,6 +222,7 @@ class _FlashAlertsSettingsScreenState extends State<FlashAlertsSettingsScreen>
           FilledButton.tonalIcon(
             icon: const Icon(Icons.copy_rounded, size: 18),
             onPressed: () async {
+              HapticFeedback.lightImpact();
               await Clipboard.setData(ClipboardData(text: text));
               if (ctx.mounted) Navigator.pop(ctx);
               _toast('Copied to clipboard');
@@ -230,7 +243,7 @@ class _FlashAlertsSettingsScreenState extends State<FlashAlertsSettingsScreen>
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.65,
+        initialChildSize: 0.56,
         minChildSize: 0.4,
         maxChildSize: 0.9,
         expand: false,
@@ -318,9 +331,15 @@ class _FlashAlertsSettingsScreenState extends State<FlashAlertsSettingsScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Blinkr',
-          style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: -0.3),
+        title: SvgPicture.asset(
+          'assets/icon/torch.svg',
+          height: 40,
+          width: 40,
+          fit: BoxFit.contain,
+          colorFilter: ColorFilter.mode(
+            Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+            BlendMode.srcIn,
+          ),
         ),
         actions: [
           IconButton(
@@ -400,7 +419,7 @@ class _FlashAlertsSettingsScreenState extends State<FlashAlertsSettingsScreen>
                 ),
                 subtitle: const Text('Master switch'),
                 value: s.enabled,
-                onChanged: canEnable ? (v) => _save(s.copyWith(enabled: v)) : null,
+                onChanged: canEnable ? (v) => _toggleSwitch(s.copyWith(enabled: v)) : null,
               ),
               const Divider(height: 1, indent: 56),
               SwitchListTile(
@@ -415,7 +434,7 @@ class _FlashAlertsSettingsScreenState extends State<FlashAlertsSettingsScreen>
                 ),
                 title: const Text('Incoming calls', style: TextStyle(fontWeight: FontWeight.w600)),
                 value: s.callsEnabled,
-                onChanged: (v) => _save(s.copyWith(callsEnabled: v)),
+                onChanged: (v) => _toggleSwitch(s.copyWith(callsEnabled: v)),
               ),
               const Divider(height: 1, indent: 56),
               SwitchListTile(
@@ -434,7 +453,7 @@ class _FlashAlertsSettingsScreenState extends State<FlashAlertsSettingsScreen>
                 ),
                 title: const Text('Notifications', style: TextStyle(fontWeight: FontWeight.w600)),
                 value: s.notificationsEnabled,
-                onChanged: (v) => _save(s.copyWith(notificationsEnabled: v)),
+                onChanged: (v) => _toggleSwitch(s.copyWith(notificationsEnabled: v)),
               ),
               const Divider(height: 1, indent: 56),
               SwitchListTile(
@@ -456,7 +475,7 @@ class _FlashAlertsSettingsScreenState extends State<FlashAlertsSettingsScreen>
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
                 value: s.onlyWhenScreenOff,
-                onChanged: (v) => _save(s.copyWith(onlyWhenScreenOff: v)),
+                onChanged: (v) => _toggleSwitch(s.copyWith(onlyWhenScreenOff: v)),
               ),
               const Divider(height: 1, indent: 56),
               SwitchListTile(
@@ -478,7 +497,65 @@ class _FlashAlertsSettingsScreenState extends State<FlashAlertsSettingsScreen>
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
                 value: s.respectDnd,
-                onChanged: (v) => _save(s.copyWith(respectDnd: v)),
+                onChanged: (v) => _toggleSwitch(s.copyWith(respectDnd: v)),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
+        _sectionHeader('Active Sound Profiles', Icons.volume_up_rounded),
+        const SizedBox(height: 8),
+
+        Card(
+          child: Column(
+            children: [
+              SwitchListTile(
+                dense: true,
+                secondary: Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.volume_up_rounded, color: Colors.amber, size: 20),
+                ),
+                title: const Text('Ring Mode', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Flash when phone sounds ringtone'),
+                value: s.flashOnNormal,
+                onChanged: (v) => _toggleSwitch(s.copyWith(flashOnNormal: v)),
+              ),
+              const Divider(height: 1, indent: 56),
+              SwitchListTile(
+                dense: true,
+                secondary: Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.vibration_rounded, color: Colors.teal, size: 20),
+                ),
+                title: const Text('Vibrate Mode', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Flash when phone is set to vibrate'),
+                value: s.flashOnVibrate,
+                onChanged: (v) => _toggleSwitch(s.copyWith(flashOnVibrate: v)),
+              ),
+              const Divider(height: 1, indent: 56),
+              SwitchListTile(
+                dense: true,
+                secondary: Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: Colors.deepOrange.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.volume_off_rounded, color: Colors.deepOrange, size: 20),
+                ),
+                title: const Text('Silent Mode', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Flash when phone is completely muted'),
+                value: s.flashOnSilent,
+                onChanged: (v) => _toggleSwitch(s.copyWith(flashOnSilent: v)),
               ),
             ],
           ),
@@ -548,7 +625,10 @@ class _FlashAlertsSettingsScreenState extends State<FlashAlertsSettingsScreen>
                         s.speedFor(_status.calibratedMinMs)!,
                     },
                     onSelectionChanged: (sel) {
-                      if (sel.isNotEmpty) _save(s.withSpeed(sel.first));
+                      if (sel.isNotEmpty) {
+                        HapticFeedback.mediumImpact();
+                        _save(s.withSpeed(sel.first));
+                      }
                     },
                   ),
                 ),
@@ -601,7 +681,12 @@ class _FlashAlertsSettingsScreenState extends State<FlashAlertsSettingsScreen>
                     DropdownMenuItem(value: 'allowlist', child: Text('Only these apps')),
                     DropdownMenuItem(value: 'denylist', child: Text('All except these apps')),
                   ],
-                  onChanged: (v) => v == null ? null : _save(s.copyWith(packageFilterMode: v)),
+                  onChanged: (v) {
+                    if (v != null) {
+                      HapticFeedback.mediumImpact();
+                      _save(s.copyWith(packageFilterMode: v));
+                    }
+                  },
                 ),
                 if (s.packageFilterMode != 'all') ...[
                   const SizedBox(height: 14),
@@ -625,7 +710,12 @@ class _FlashAlertsSettingsScreenState extends State<FlashAlertsSettingsScreen>
                             : 'Select Apps (${s.packages.length} selected)',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      onPressed: _loadingApps ? null : _openAppPicker,
+                      onPressed: _loadingApps
+                          ? null
+                          : () {
+                              HapticFeedback.mediumImpact();
+                              _openAppPicker();
+                            },
                     ),
                   ),
                   if (s.packages.isNotEmpty) ...[
@@ -641,6 +731,7 @@ class _FlashAlertsSettingsScreenState extends State<FlashAlertsSettingsScreen>
                         ),
                         TextButton(
                           onPressed: () {
+                            HapticFeedback.mediumImpact();
                             _save(s.copyWith(packages: []));
                             _packages.clear();
                           },
@@ -672,6 +763,7 @@ class _FlashAlertsSettingsScreenState extends State<FlashAlertsSettingsScreen>
                           label: Text(found.name, style: const TextStyle(fontSize: 12)),
                           deleteIcon: const Icon(Icons.close, size: 14),
                           onDeleted: () {
+                            HapticFeedback.mediumImpact();
                             final next = List<String>.from(s.packages)..remove(pkg);
                             _save(s.copyWith(packages: next));
                             _packages.text = next.join(', ');
@@ -840,6 +932,7 @@ class _FlashAlertsSettingsScreenState extends State<FlashAlertsSettingsScreen>
       showCheckmark: false,
       avatar: has ? const Icon(Icons.check, size: 14) : const Icon(Icons.add, size: 14),
       onSelected: (selected) {
+        HapticFeedback.mediumImpact();
         final list = List<String>.from(s.packages);
         if (selected) {
           list.add(pkg);
@@ -884,8 +977,17 @@ class _FlashAlertsSettingsScreenState extends State<FlashAlertsSettingsScreen>
             max: max.toDouble(),
             divisions: ((max - min) / step).round(),
             label: '$value',
-            onChanged: (v) => setState(() => _settings = apply(v.round())),
-            onChangeEnd: (v) => _save(_settings),
+            onChanged: (v) {
+              final rounded = v.round();
+              if (rounded != value) {
+                HapticFeedback.selectionClick();
+                setState(() => _settings = apply(rounded));
+              }
+            },
+            onChangeEnd: (v) {
+              HapticFeedback.lightImpact();
+              _save(_settings);
+            },
           ),
         ],
       );
@@ -966,7 +1068,7 @@ class _FlashAlertsSettingsScreenState extends State<FlashAlertsSettingsScreen>
               ),
               subtitle: const Text('Log toggles instead of using the LED'),
               value: s.dryRun,
-              onChanged: (v) => _save(s.copyWith(dryRun: v)),
+              onChanged: (v) => _toggleSwitch(s.copyWith(dryRun: v)),
             ),
           ],
         ],
@@ -1267,31 +1369,46 @@ class _AppPickerSheetState extends State<_AppPickerSheet> {
                   FilterChip(
                     label: Text('All (${widget.apps.length})'),
                     selected: _filter == 'all',
-                    onSelected: (_) => setState(() => _filter = 'all'),
+                    onSelected: (_) {
+                      HapticFeedback.selectionClick();
+                      setState(() => _filter = 'all');
+                    },
                   ),
                   const SizedBox(width: 8),
                   FilterChip(
                     label: const Text('User Apps'),
                     selected: _filter == 'user',
-                    onSelected: (_) => setState(() => _filter = 'user'),
+                    onSelected: (_) {
+                      HapticFeedback.selectionClick();
+                      setState(() => _filter = 'user');
+                    },
                   ),
                   const SizedBox(width: 8),
                   FilterChip(
                     label: Text('Selected (${_selected.length})'),
                     selected: _filter == 'selected',
-                    onSelected: (_) => setState(() => _filter = 'selected'),
+                    onSelected: (_) {
+                      HapticFeedback.selectionClick();
+                      setState(() => _filter = 'selected');
+                    },
                   ),
                   const SizedBox(width: 12),
                   TextButton(
-                    onPressed: () => setState(() {
-                      for (final a in filtered) {
-                        _selected.add(a.packageName);
-                      }
-                    }),
+                    onPressed: () {
+                      HapticFeedback.mediumImpact();
+                      setState(() {
+                        for (final a in filtered) {
+                          _selected.add(a.packageName);
+                        }
+                      });
+                    },
                     child: const Text('Select all', style: TextStyle(fontSize: 12)),
                   ),
                   TextButton(
-                    onPressed: () => setState(() => _selected.clear()),
+                    onPressed: () {
+                      HapticFeedback.mediumImpact();
+                      setState(() => _selected.clear());
+                    },
                     child: const Text('Clear all', style: TextStyle(fontSize: 12)),
                   ),
                 ],
@@ -1326,6 +1443,7 @@ class _AppPickerSheetState extends State<_AppPickerSheet> {
                             style: const TextStyle(fontSize: 11, color: Colors.grey),
                           ),
                           onChanged: (val) {
+                            HapticFeedback.mediumImpact();
                             setState(() {
                               if (val == true) {
                                 _selected.add(app.packageName);
@@ -1353,7 +1471,10 @@ class _AppPickerSheetState extends State<_AppPickerSheet> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
-                  onPressed: () => Navigator.pop(context, _selected),
+                  onPressed: () {
+                    HapticFeedback.mediumImpact();
+                    Navigator.pop(context, _selected);
+                  },
                   child: Text(
                     'Done (${_selected.length} Apps Selected)',
                     style: const TextStyle(fontWeight: FontWeight.bold),

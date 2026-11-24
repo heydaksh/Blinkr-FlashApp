@@ -98,4 +98,26 @@ class TriggerPolicyTest {
         now += 10_000
         assertEquals(Decision.FlashOnce, policy.decide(n(), s, DeviceState(interactive = true, keyguardLocked = true)))
     }
+
+    @Test fun ringerModesRespected() {
+        // Normal mode
+        val stateNormal = DeviceState(ringerMode = DeviceState.RINGER_MODE_NORMAL)
+        assertEquals(Decision.FlashOnce, policy.decide(n(), on.copy(flashOnNormal = true), stateNormal))
+        now += 10_000
+        ignored(policy.decide(n(), on.copy(flashOnNormal = false), stateNormal), "RINGER_NORMAL")
+
+        // Vibrate mode
+        now += 10_000
+        val stateVibrate = DeviceState(ringerMode = DeviceState.RINGER_MODE_VIBRATE)
+        assertEquals(Decision.FlashOnce, policy.decide(n(), on.copy(flashOnVibrate = true), stateVibrate))
+        now += 10_000
+        ignored(policy.decide(n(), on.copy(flashOnVibrate = false), stateVibrate), "RINGER_VIBRATE")
+
+        // Silent mode
+        now += 10_000
+        val stateSilent = DeviceState(ringerMode = DeviceState.RINGER_MODE_SILENT)
+        assertEquals(Decision.FlashOnce, policy.decide(n(), on.copy(flashOnSilent = true), stateSilent))
+        now += 10_000
+        ignored(policy.decide(n(), on.copy(flashOnSilent = false), stateSilent), "RINGER_SILENT")
+    }
 }

@@ -32,6 +32,8 @@ class FlashEngine(
     @Volatile var currentKind: String? = null
         private set
     @Volatile var onRunEnded: (() -> Unit)? = null
+    /** Fires (in addition to onRunEnded) when a KIND_CALL run ends for any reason. */
+    @Volatile var onCallRunEnded: (() -> Unit)? = null
 
     private var token: Any? = null
     private var startedAt = 0L
@@ -92,15 +94,15 @@ class FlashEngine(
             }
         }
         scheduler.postAt(run, t0 + total) { if (token === run) safely { stopInternal("COMPLETED") } }
+        scheduler.postAt(run, t0 + total + 500L) { if (token === run) safely { stopInternal("WATCHDOG_TIMEOUT") } }
         diag.log("FLASH_START", "reason" to reason, "kind" to kind, "pattern" to pattern.summary(),
             "strength" to pattern.strengthLevel)
     }
 
     private fun toggle(driver: TorchDriver, step: Step, strength: Int?, scheduledAt: Long) {
-        if (step.on) {
-            if (!driver.isAvailable()) return stopInternal("CAMERA_UNAVAILABLE")
-            if (driver.isUserTorchOn()) return stopInternal("USER_TORCH_ON")
-        }
+        // Camera taken by another app (on or off step): stop without touching the hardware.
+        if (!driver.isAvailable()) return stopInternal("CAMERA_UNAVAILABLE")
+        if (step.on && driver.isUserTorchOn()) return stopInternal("USER_TORCH_ON")
         val success = driver.set(step.on, strength)
         if (success) ok++ else failed++
         if (verbose) {
@@ -108,18 +110,31 @@ class FlashEngine(
             diag.log("FLASH_TOGGLE", "on" to step.on, "scheduledAt" to scheduledAt,
                 "executedAt" to executed, "driftMs" to (executed - scheduledAt))
         }
-        if (!success && step.on) stopInternal("TOGGLE_FAILED")
+        if (!success) {
+            if (step.on) {
+                stopInternal("TOGGLE_FAILED")
+            } else {
+                stopInternal("OFF_FAILED")
+            }
+        }
     }
 
     private fun stopInternal(reason: String) {
         token?.let { scheduler.cancel(it) }
         token = null
         val was = isRunning
+        val endedKind = currentKind
         if (was) {
             try {
                 val d = driverProvider()
                 // Never switch off a torch the user turned on themselves (FR-6).
-                if (!d.isUserTorchOn()) d.set(false, null)
+                // In all other cases (COMPLETED, ERROR, TIMEOUT, CANCELLED, TOGGLE_FAILED), force torch off!
+                // If another app owns the camera the framework already turned our torch off and any
+                // set() would only raise CAMERA_IN_USE, so leave the hardware alone.
+                val cameraTaken = reason == "CAMERA_UNAVAILABLE" || !d.isAvailable()
+                if (!cameraTaken && (reason != "USER_TORCH_ON" || !d.isUserTorchOn())) {
+                    d.set(false, null)
+                }
             } catch (_: Throwable) {
             }
             diag.log("FLASH_STOP", "reason" to reason, "durationMs" to (scheduler.now() - startedAt),
@@ -129,6 +144,7 @@ class FlashEngine(
         currentKind = null
         runCatching { wakeLock.release() }
         if (was) runCatching { onRunEnded?.invoke() }
+        if (was && endedKind == KIND_CALL) runCatching { onCallRunEnded?.invoke() }
     }
 
     /** Last-resort guard: an unexpected exception must never leave the LED on. */

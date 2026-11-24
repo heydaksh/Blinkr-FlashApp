@@ -83,12 +83,18 @@ class FlashNotificationListenerService : NotificationListenerService() {
             is Decision.Ignore -> FlashDiagnostics.log("NOTIF_IGNORED", "pkg" to d.pkg, "reason" to decision.reason)
             Decision.FlashOnce -> engine.start(FlashRuntime.notificationPattern(this, settings), "notification:${d.pkg}")
             Decision.FlashCall, Decision.ReplaceWithCall -> {
-                FlashDiagnostics.log("CALL_RINGING", "source" to "notification")
-                engine.start(FlashRuntime.callPattern(this, settings), "call", FlashEngine.KIND_CALL)
+                FlashRuntime.beginCallFlash(this, settings, "notification")
             }
             Decision.StopCall -> {
-                FlashDiagnostics.log("CALL_ENDED", "source" to "notification")
-                engine.stop("CALL_ANSWERED", onlyKind = FlashEngine.KIND_CALL)
+                // With telephony permission the call state callback is authoritative; a dialer re-posting
+                // its notification without a full-screen intent (common on a locked screen) must not
+                // cut the flash short. Without it, fall back to the notification heuristic.
+                if (FlashRuntime.telephonyActive) {
+                    FlashDiagnostics.log("CALL_STOP_IGNORED", "source" to "notification")
+                } else {
+                    FlashDiagnostics.log("CALL_ENDED", "source" to "notification")
+                    FlashRuntime.stopCall(this, "CALL_ANSWERED")
+                }
             }
         }
     }
@@ -97,7 +103,7 @@ class FlashNotificationListenerService : NotificationListenerService() {
         try {
             if (FlashRuntime.policy.onRemoved(hash(sbn.key))) {
                 FlashDiagnostics.log("CALL_ENDED", "source" to "notification")
-                FlashRuntime.engine(this).stop("CALL_NOTIFICATION_REMOVED", onlyKind = FlashEngine.KIND_CALL)
+                FlashRuntime.stopCall(this, "CALL_NOTIFICATION_REMOVED")
             }
         } catch (_: Throwable) { }
     }

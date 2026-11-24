@@ -109,4 +109,40 @@ class FlashEngineTest {
         engine.start(pattern, "b"); sched.advanceTo(10000)
         assertEquals(26, torch.toggles.size)
     }
+
+    @Test fun burstOfStartsRunsOnceAndEndsOff() {
+        repeat(6) { engine.start(pattern, "n$it") }
+        assertEquals(1, diag.events.count { it.startsWith("FLASH_START") })
+        assertEquals(5, diag.events.count { it.startsWith("FLASH_COALESCED") })
+        sched.advanceTo(10_000)
+        assertFalse(engine.isRunning); assertFalse(torch.led)
+    }
+
+    @Test fun staleUserTorchFlagStillTurnsOffOnCompletion() {
+        engine.start(pattern, "t")
+        sched.advanceTo(10)
+        torch.userOn = true // false positive from a late callback; run was not aborted by it
+        sched.advanceTo(5000)
+        assertFalse(torch.led)
+    }
+
+    @Test fun cameraTakenMidRunStopsWithoutTouchingHardware() {
+        engine.start(pattern, "t")
+        sched.advanceTo(10)
+        val before = torch.toggles.size
+        torch.available = false
+        sched.advanceTo(200)
+        assertFalse(engine.isRunning)
+        assertEquals(before, torch.toggles.size)
+        assertTrue(diag.has("FLASH_STOP reason=CAMERA_UNAVAILABLE"))
+    }
+
+    @Test fun callRunEndedCallbackOnlyForCalls() {
+        var calls = 0
+        engine.onCallRunEnded = { calls++ }
+        engine.start(pattern, "n"); sched.advanceTo(5000)
+        assertEquals(0, calls)
+        engine.start(pattern, "c", FlashEngine.KIND_CALL); engine.stop("CALL_SILENCED", FlashEngine.KIND_CALL)
+        assertEquals(1, calls); assertFalse(torch.led)
+    }
 }

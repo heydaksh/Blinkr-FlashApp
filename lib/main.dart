@@ -79,7 +79,7 @@ class FlashAlertsApp extends StatelessWidget {
       cardTheme: CardThemeData(
         color: Colors.white,
         elevation: 1,
-        shadowColor: Colors.black.withOpacity(0.04),
+        shadowColor: Colors.black.withValues(alpha: 0.04),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
           side: const BorderSide(color: Color(0xFFE2E7EE), width: 1),
@@ -98,4 +98,3 @@ class FlashAlertsApp extends StatelessWidget {
     );
   }
 }
-

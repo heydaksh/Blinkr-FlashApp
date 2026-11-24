@@ -23,6 +23,7 @@ class CallStateMonitor(private val ctx: Context) {
         }
         try {
             if (Build.VERSION.SDK_INT >= 31) registerNew() else registerLegacy()
+            FlashRuntime.telephonyActive = true
         } catch (e: SecurityException) {
             FlashDiagnostics.log("PERMISSION_MISSING", "which" to "read_phone_state")
         }
@@ -54,6 +55,7 @@ class CallStateMonitor(private val ctx: Context) {
         } catch (_: Exception) { }
         callback = null
         legacy = null
+        FlashRuntime.telephonyActive = false
     }
 
     private fun handle(state: Int) {
@@ -70,7 +72,7 @@ class CallStateMonitor(private val ctx: Context) {
             FlashDiagnostics.log("CALL_ENDED", "source" to "telephony", "state" to reason)
             FlashRuntime.stopCall(ctx, reason)
         } else {
-            FlashRuntime.policy.clearCall()
+            FlashRuntime.callFinished()
         }
     }
 }
