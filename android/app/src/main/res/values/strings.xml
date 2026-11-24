@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Blinkr</string>
+    <string name="flash_alerts_listener_label">Blinkr Flash Alerts</string>
+</resources>
