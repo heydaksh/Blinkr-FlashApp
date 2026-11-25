@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'features/app_update/update_gate.dart';
 import 'features/flash_alerts/flash_alerts_api.dart';
 import 'features/flash_alerts/flash_alerts_settings_screen.dart';
 
@@ -94,7 +95,7 @@ class FlashAlertsApp extends StatelessWidget {
       theme: lightTheme,
       darkTheme: darkTheme,
       themeMode: ThemeMode.system,
-      home: FlashAlertsSettingsScreen(api: api),
+      home: UpdateGate(child: FlashAlertsSettingsScreen(api: api)),
     );
   }
 }

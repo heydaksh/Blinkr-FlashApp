@@ -1,0 +1,8 @@
+{
+  "versionCode": 4,
+  "versionName": "1.0.3",
+  "apkUrl": "https://blinkr-updates.web.app/blinkr-1.0.3.bin",
+  "sha256": "7798d09c3118876947c89293273e36a5e513f8341f47d3afa1b09af59459b98b",
+  "notes": "Notification flash now syncs better with the banner and sound",
+  "mandatory": false
+}

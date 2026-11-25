@@ -11,6 +11,7 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         flashHandler = FlashAlertsChannelHandler(applicationContext, this)
             .also { it.register(flutterEngine.dartExecutor.binaryMessenger) }
+        AppUpdater(applicationContext).register(flutterEngine.dartExecutor.binaryMessenger)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {

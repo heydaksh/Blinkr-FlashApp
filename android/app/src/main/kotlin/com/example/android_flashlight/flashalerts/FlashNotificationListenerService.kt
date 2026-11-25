@@ -81,7 +81,8 @@ class FlashNotificationListenerService : NotificationListenerService() {
         val engine = FlashRuntime.engine(this)
         when (val decision = FlashRuntime.policy.decide(d, settings, FlashRuntime.deviceState(this))) {
             is Decision.Ignore -> FlashDiagnostics.log("NOTIF_IGNORED", "pkg" to d.pkg, "reason" to decision.reason)
-            Decision.FlashOnce -> engine.start(FlashRuntime.notificationPattern(this, settings), "notification:${d.pkg}")
+            Decision.FlashOnce -> engine.start(FlashRuntime.notificationPattern(this, settings), "notification:${d.pkg}",
+                startDelayMs = FlashRuntime.NOTIFICATION_FLASH_DELAY_MS)
             Decision.FlashCall, Decision.ReplaceWithCall -> {
                 FlashRuntime.beginCallFlash(this, settings, "notification")
             }

@@ -50,8 +50,13 @@ class FlashEngine(
         else -> null
     }
 
-    fun start(pattern: FlashPattern, reason: String, kind: String = KIND_NOTIFICATION) {
-        scheduler.post { safely { startInternal(pattern, reason, kind) } }
+    /**
+     * [startDelayMs] shifts the whole pattern later (used to line notification flashes up with the banner,
+     * sound and vibration). The run counts as active during the delay, so a burst of notifications is
+     * coalesced instead of queueing more delayed runs, and stop()/a call can still cancel it.
+     */
+    fun start(pattern: FlashPattern, reason: String, kind: String = KIND_NOTIFICATION, startDelayMs: Long = 0L) {
+        scheduler.post { safely { startInternal(pattern, reason, kind, startDelayMs.coerceAtLeast(0L)) } }
     }
 
     fun stop(reason: String, onlyKind: String? = null) {
@@ -62,7 +67,7 @@ class FlashEngine(
         }
     }
 
-    private fun startInternal(pattern: FlashPattern, reason: String, kind: String) {
+    private fun startInternal(pattern: FlashPattern, reason: String, kind: String, startDelayMs: Long) {
         if (isRunning) {
             if (kind == KIND_CALL && currentKind != KIND_CALL) stopInternal("REPLACED_BY_CALL")
             else {
@@ -84,8 +89,8 @@ class FlashEngine(
         currentKind = kind
         ok = 0; failed = 0
         startedAt = scheduler.now()
-        runCatching { wakeLock.acquire(total + 1000) }
-        val t0 = startedAt + 5
+        runCatching { wakeLock.acquire(startDelayMs + total + 1000) }
+        val t0 = startedAt + 5 + startDelayMs
         for (step in timeline) {
             val at = t0 + step.offsetMs
             scheduler.postAt(run, at) {
@@ -96,7 +101,7 @@ class FlashEngine(
         scheduler.postAt(run, t0 + total) { if (token === run) safely { stopInternal("COMPLETED") } }
         scheduler.postAt(run, t0 + total + 500L) { if (token === run) safely { stopInternal("WATCHDOG_TIMEOUT") } }
         diag.log("FLASH_START", "reason" to reason, "kind" to kind, "pattern" to pattern.summary(),
-            "strength" to pattern.strengthLevel)
+            "strength" to pattern.strengthLevel, "delayMs" to startDelayMs)
     }
 
     private fun toggle(driver: TorchDriver, step: Step, strength: Int?, scheduledAt: Long) {

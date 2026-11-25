@@ -145,4 +145,48 @@ class FlashEngineTest {
         engine.start(pattern, "c", FlashEngine.KIND_CALL); engine.stop("CALL_SILENCED", FlashEngine.KIND_CALL)
         assertEquals(1, calls); assertFalse(torch.led)
     }
+
+    @Test fun startDelayShiftsPatternWithoutChangingIt() {
+        engine.start(pattern, "n", startDelayMs = 110)
+        assertTrue(engine.isRunning)
+        sched.advanceTo(100)
+        assertTrue("no LED activity before the delay", torch.toggles.isEmpty())
+        sched.advanceTo(5000)
+        assertEquals(12 + 1, torch.toggles.size) // same 12 steps + final safety off
+        assertFalse(torch.led); assertFalse(engine.isRunning)
+    }
+
+    @Test fun burstDuringDelayIsCoalesced() {
+        engine.start(pattern, "a", startDelayMs = 110)
+        sched.advanceTo(50)
+        repeat(4) { engine.start(pattern, "b$it", startDelayMs = 110) }
+        assertEquals(1, diag.events.count { it.startsWith("FLASH_START") })
+        assertEquals(4, diag.events.count { it.startsWith("FLASH_COALESCED") })
+        sched.advanceTo(10_000)
+        assertFalse(torch.led); assertFalse(engine.isRunning)
+    }
+
+    @Test fun callDuringDelayReplacesPendingNotificationFlash() {
+        engine.start(pattern, "n", startDelayMs = 110)
+        sched.advanceTo(20)
+        engine.start(pattern, "call", FlashEngine.KIND_CALL)
+        assertEquals(FlashEngine.KIND_CALL, engine.currentKind)
+        sched.advanceTo(10_000)
+        assertFalse(torch.led)
+        assertEquals(1, diag.events.count { it.startsWith("FLASH_START") && it.contains("kind=notification") })
+    }
+
+    @Test fun stopDuringDelayCancelsPendingFlash() {
+        engine.start(pattern, "n", startDelayMs = 110)
+        engine.stop("MANUAL")
+        sched.advanceTo(10_000)
+        assertFalse(torch.toggles.any { it }) // LED never turned on
+        assertFalse(engine.isRunning)
+    }
+
+    @Test fun callsAreNotDelayed() {
+        engine.start(pattern, "call", FlashEngine.KIND_CALL)
+        sched.advanceTo(10)
+        assertTrue(torch.led)
+    }
 }

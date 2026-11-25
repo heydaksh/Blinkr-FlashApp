@@ -28,6 +28,9 @@ private class PmWakeLock(ctx: Context) : WakeLockHolder {
 
 /** Process-wide singletons, usable without Flutter. */
 object FlashRuntime {
+    /** Notification flashes start this long after the notification is posted (banner/sound/vibration lag). */
+    const val NOTIFICATION_FLASH_DELAY_MS = 110L
+
     val policy = TriggerPolicy { SystemClock.elapsedRealtime() }
 
     private var appCtx: Context? = null
